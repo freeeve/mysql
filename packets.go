@@ -71,6 +71,7 @@ func (mc *mysqlConn) readPacket() ([]byte, error) {
 		payload = append(payload, data...)
 
 		if isLastPacket {
+			fmt.Println("we read a packet paylod:", string(payload))
 			return payload, nil
 		}
 	}
@@ -78,6 +79,7 @@ func (mc *mysqlConn) readPacket() ([]byte, error) {
 
 // Write packet buffer 'data'
 func (mc *mysqlConn) writePacket(data []byte) error {
+	fmt.Println("we are writing a packet:", string(data))
 	pktLen := len(data) - 4
 
 	if pktLen > mc.maxPacketAllowed {
@@ -345,6 +347,7 @@ func (mc *mysqlConn) writeCommandPacket(command byte) error {
 }
 
 func (mc *mysqlConn) writeCommandPacketStr(command byte, arg string) error {
+	fmt.Println("we are writing a command packet str", string(command), arg)
 	// Reset Packet Sequence
 	mc.sequence = 0
 
@@ -877,17 +880,24 @@ func (stmt *mysqlStmt) writeExecutePacket(args []driver.Value) error {
 			case []byte:
 				// Common case (non-nil value) first
 				if v != nil {
-					paramTypes[i+i] = fieldTypeString
-					paramTypes[i+i+1] = 0x00
-
-					if len(v) < mc.maxPacketAllowed-pos-len(paramValues)-(len(args)-(i+1))*64 {
-						paramValues = appendLengthEncodedInteger(paramValues,
-							uint64(len(v)),
-						)
+					if len(v) == 8 {
+						fmt.Println("ugly hack to see if this works, value: ", binary.LittleEndian.Uint64(v))
+						paramTypes[i+i] = fieldTypeLongLong
+						paramTypes[i+i+1] = 0x1 << 7
 						paramValues = append(paramValues, v...)
 					} else {
-						if err := stmt.writeCommandLongData(i, v); err != nil {
-							return err
+						paramTypes[i+i] = fieldTypeString
+						paramTypes[i+i+1] = 0x00
+
+						if len(v) < mc.maxPacketAllowed-pos-len(paramValues)-(len(args)-(i+1))*64 {
+							paramValues = appendLengthEncodedInteger(paramValues,
+								uint64(len(v)),
+							)
+							paramValues = append(paramValues, v...)
+						} else {
+							if err := stmt.writeCommandLongData(i, v); err != nil {
+								return err
+							}
 						}
 					}
 					continue

@@ -247,6 +247,33 @@ func TestInt(t *testing.T) {
 
 			dbt.mustExec("DROP TABLE IF EXISTS test")
 		}
+
+		// REALLY BIG INT64
+		bigIn := uint64(1<<63 + 50)
+		var bigOut uint64
+		dbt.mustExec("CREATE TABLE test (value BIGINT UNSIGNED)")
+
+		stmt, err := dbt.db.Prepare("INSERT INTO test VALUES (?)")
+		if err != nil {
+			dbt.Errorf("PREPARE FAILED")
+		}
+		_, err = stmt.Exec(bigIn)
+		if err != nil {
+			dbt.Errorf("INSERT UNSIGNED > 1<<63 FAILED")
+			fmt.Println(err)
+		}
+
+		rows = dbt.mustQuery("SELECT value FROM test")
+		if rows.Next() {
+			rows.Scan(&bigOut)
+			if bigIn != bigOut {
+				dbt.Errorf("BIGINT UNSIGNED: %d != %d", bigIn, bigOut)
+			}
+		} else {
+			dbt.Errorf("BIGINT UNSIGNED: no data")
+		}
+
+		dbt.mustExec("DROP TABLE IF EXISTS test")
 	})
 }
 

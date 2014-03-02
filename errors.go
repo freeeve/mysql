@@ -122,6 +122,7 @@ func (mc *mysqlConn) getWarnings() (err error) {
 			warnings = append(warnings, warning)
 
 		case io.EOF:
+			fmt.Println(warnings)
 			return warnings
 
 		default:
